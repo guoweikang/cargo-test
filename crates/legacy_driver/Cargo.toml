@@ -1,0 +1,11 @@
+[package]
+name = "legacy_driver"
+version = "0.1.0"
+edition = "2021"
+
+# Note: No [package.metadata.kbuild] - this uses traditional Cargo features
+
+[features]
+usb = []
+pci = []
+default = ["usb"]

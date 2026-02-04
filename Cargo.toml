@@ -1,0 +1,29 @@
+[workspace]
+members = [
+    "cargo-kbuild",
+    "crates/kernel_irq",
+    "crates/kernel_task",
+    "crates/kernel_schedule",
+    "crates/kernel_net",
+    "crates/network_utils",
+    "crates/legacy_driver",
+]
+
+[package]
+name = "cargo-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kernel_schedule = { path = "crates/kernel_schedule" }
+kernel_net = { path = "crates/kernel_net", optional = true }
+legacy_driver = { path = "crates/legacy_driver", optional = true }
+
+[features]
+CONFIG_SMP = []
+CONFIG_PREEMPT = []
+CONFIG_NET = ["kernel_net"]
+CONFIG_ASYNC = []
+CONFIG_DEBUG = []
+CONFIG_LOG_LEVEL = []
+legacy = ["legacy_driver"]

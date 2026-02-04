@@ -1,0 +1,16 @@
+[package]
+name = "kernel_net"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.kbuild]
+enabled = true
+
+[dependencies]
+network_utils = { path = "../network_utils", optional = true }
+log = { version = "0.4", optional = true }
+
+[features]
+CONFIG_NET = ["network_utils"]
+CONFIG_ASYNC = []
+CONFIG_DEBUG = ["log"]

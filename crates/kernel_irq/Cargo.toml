@@ -1,0 +1,11 @@
+[package]
+name = "kernel_irq"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.kbuild]
+enabled = true
+
+[features]
+CONFIG_SMP = []
+CONFIG_PREEMPT = []

@@ -1,0 +1,40 @@
+mainmenu "Kernel Configuration"
+
+config SMP
+    bool "Symmetric Multi-Processing support"
+    default y
+    help
+      Enable support for systems with more than one CPU core.
+
+config PREEMPT
+    bool "Preemptible Kernel"
+    depends on SMP
+    default y
+    help
+      Allow the kernel to preempt tasks.
+
+config NET
+    bool "Network support"
+    default y
+    help
+      Enable networking subsystem.
+
+config ASYNC
+    bool "Async runtime support"
+    depends on NET
+    default y
+    help
+      Enable asynchronous runtime for networking.
+
+config DEBUG
+    bool "Debug mode"
+    default n
+    help
+      Enable debug features and checks.
+
+config LOG_LEVEL
+    int "Log level (0-5)"
+    range 0 5
+    default 3
+    help
+      Set the system log level. Higher values = more verbose.
