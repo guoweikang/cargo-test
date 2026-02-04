@@ -212,6 +212,8 @@ The repository includes a complete demo application:
 
 **Expected Output:**
 
+> **Note**: The demo application uses Chinese text in output messages to demonstrate internationalization support. The functionality remains the same regardless of language.
+
 ```
 🚀 ============================================
 🚀  Cargo-Kbuild MVP Demo
