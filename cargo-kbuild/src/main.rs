@@ -134,7 +134,14 @@ fn validate_features(workspace: &Workspace) -> Result<(), String> {
         .map(|c| c.name.clone())
         .collect();
     
-    // 2. Validate each kbuild-enabled crate's features
+    // 2. Build a set of all workspace packages
+    let workspace_packages: HashSet<String> = workspace
+        .crates
+        .iter()
+        .map(|c| c.name.clone())
+        .collect();
+    
+    // 3. Validate each kbuild-enabled crate's features
     for crate_info in workspace.crates.iter().filter(|c| c.is_kbuild_enabled()) {
         for (feature_name, deps) in &crate_info.features {
             // Only check CONFIG_* features
@@ -144,46 +151,42 @@ fn validate_features(workspace: &Workspace) -> Result<(), String> {
             
             for dep in deps {
                 // Check if sub-feature is specified
-                if let Some((pkg_name, _sub_feature)) = dep.split_once('/') {
+                if let Some((pkg_name, sub_feature)) = dep.split_once('/') {
                     // Key decision: Does the dependency support kbuild?
                     if kbuild_packages.contains(pkg_name) {
-                        // Supports kbuild → Error
+                        // ❌ Error: kbuild-enabled workspace crate cannot specify sub-feature
                         return Err(format!(
                             "❌ Error in crate '{}':\n\
                              \n\
                              Feature '{}' specifies sub-feature: '{}'\n\
                              \n\
-                             Dependency '{}' has kbuild enabled:\n\
-                             - It should control its own features by reading .config\n\
-                             - Cannot be controlled by dependent crates\n\
-                             \n\
-                             Expected: '{}'\n\
-                             Found:    '{}'\n\
+                             Dependency '{}' is kbuild-enabled:\n\
+                             - It reads CONFIG_* from .config directly\n\
+                             - Cannot be controlled by parent crate\n\
                              \n\
                              Solution:\n\
-                             1. Change '{}' to '{}' in [features]\n\
-                             2. Ensure '{}' reads CONFIG_* from .config\n\
+                             1. Change to: {} = [\"{}\"]\n\
+                             2. Enable {} in .config file\n\
                              \n\
-                             Or, if '{}' should NOT use kbuild:\n\
-                             - Remove [package.metadata.kbuild] from {}/Cargo.toml\n\
-                             - Remove CONFIG_* features from {}\n",
+                             Note: Third-party crates (e.g., log/std, tokio/rt) are allowed sub-features.\n",
                             crate_info.name,
                             feature_name,
                             dep,
                             pkg_name,
-                            pkg_name,
-                            dep,
-                            dep, pkg_name,
-                            pkg_name,
-                            pkg_name,
-                            pkg_name, pkg_name
+                            feature_name, pkg_name,
+                            sub_feature
                         ));
-                    } else {
-                        // Does not support kbuild → Allow (with info message)
+                    } else if workspace_packages.contains(pkg_name) {
+                        // ℹ️ Info: Non-kbuild workspace crate - sub-feature allowed
                         eprintln!(
-                            "ℹ️  Info: Feature '{}' in '{}' specifies '{}'\n\
-                             Dependency '{}' does not support kbuild, this is allowed.\n",
-                            feature_name, crate_info.name, dep, pkg_name
+                            "ℹ️  '{}' is not kbuild-enabled, sub-feature allowed: {}\n",
+                            pkg_name, dep
+                        );
+                    } else {
+                        // ℹ️ Info: Third-party library - sub-feature allowed
+                        eprintln!(
+                            "ℹ️  '{}' is third-party, sub-feature allowed: {}\n",
+                            pkg_name, dep
                         );
                     }
                 }

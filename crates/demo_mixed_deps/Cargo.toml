@@ -1,0 +1,18 @@
+[package]
+name = "demo_mixed_deps"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.kbuild]
+enabled = true
+
+[dependencies]
+network_utils = { path = "../network_utils", optional = true }
+kbuild_config = { path = "../kbuild_config" }
+
+[features]
+# ✅ Correct: kbuild-enabled crate without sub-feature
+CONFIG_NET = ["network_utils"]
+
+# Note: If we had log as dependency, this would be correct:
+# CONFIG_LOGGING = ["log/std"]  # ✅ Third-party sub-feature allowed
