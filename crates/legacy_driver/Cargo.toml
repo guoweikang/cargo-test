@@ -1,0 +1,11 @@
+[package]
+name = "legacy_driver"
+version = "0.1.0"
+edition = "2021"
+
+# Note: No metadata.kbuild - this is a legacy crate
+
+[features]
+# Legacy features (not CONFIG_* prefixed)
+usb = []
+pci = []

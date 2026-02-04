@@ -1,0 +1,18 @@
+[package]
+name = "kernel_net"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.kbuild]
+enabled = true
+
+[dependencies]
+network_utils = { path = "../network_utils" }
+
+[features]
+# ✅ Correct: network_utils supports kbuild, only declare dependency
+CONFIG_NET = []
+
+# ✅ Correct: log would not support kbuild (if we had it), could specify sub-feature
+# CONFIG_LOGGING = ["log/std"]  # Example for third-party
+CONFIG_LOGGING = []
