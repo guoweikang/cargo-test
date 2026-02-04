@@ -6,6 +6,7 @@ members = [
     "crates/kernel_net",
     "crates/network_utils",
     "crates/legacy_driver",
+    "crates/kbuild_config",
     "cargo-kbuild",
 ]
 resolver = "2"
