@@ -1,0 +1,17 @@
+[package]
+name = "cargo-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kernel_schedule = { path = "crates/kernel_schedule" }
+kernel_task = { path = "crates/kernel_task" }
+legacy_driver = { path = "crates/legacy_driver" }
+kernel_net = { path = "crates/kernel_net", optional = true }
+
+[features]
+default = []
+CONFIG_SMP = ["kernel_schedule/CONFIG_SMP", "kernel_task/CONFIG_SMP"]
+CONFIG_PREEMPT = ["kernel_schedule/CONFIG_PREEMPT"]
+CONFIG_NET = ["kernel_net"]
+CONFIG_LOGGING = ["kernel_net/CONFIG_LOGGING"]

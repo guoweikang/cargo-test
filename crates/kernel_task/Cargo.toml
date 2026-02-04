@@ -1,0 +1,13 @@
+[package]
+name = "kernel_task"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.kbuild]
+enabled = true
+
+[dependencies]
+kernel_irq = { path = "../kernel_irq" }
+
+[features]
+CONFIG_SMP = []
