@@ -7,12 +7,12 @@ edition = "2021"
 enabled = true
 
 [dependencies]
-network_utils = { path = "../network_utils", optional = true }
 kbuild_config = { path = "../kbuild_config" }
 
 [features]
-# ✅ Correct: kbuild-enabled crate without sub-feature
-CONFIG_NET = ["network_utils"]
+# This crate demonstrates using config constants from kbuild_config
+# It doesn't need optional dependencies for this demo
+CONFIG_NET = []
 
 # Note: If we had log as dependency, this would be correct:
 # CONFIG_LOGGING = ["log/std"]  # ✅ Third-party sub-feature allowed
