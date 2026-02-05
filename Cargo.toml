@@ -26,8 +26,5 @@ demo_mixed_deps = { path = "crates/demo_mixed_deps", optional = true }
 
 [features]
 default = []
-CONFIG_SMP = []
-CONFIG_PREEMPT = []
+# Only declare features that enable optional dependencies
 CONFIG_NET = ["kernel_net", "demo_mixed_deps"]
-CONFIG_ASYNC = []
-CONFIG_LOGGING = []
