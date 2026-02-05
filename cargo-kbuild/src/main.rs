@@ -9,6 +9,7 @@ struct CargoToml {
     package: Package,
     #[serde(default)]
     features: HashMap<String, Vec<String>>,
+    // Note: dependencies field kept for potential future feature validation
     #[serde(default)]
     #[allow(dead_code)]
     dependencies: HashMap<String, toml::Value>,
@@ -36,6 +37,7 @@ struct KbuildMetadata {
 #[derive(Debug)]
 struct CrateInfo {
     name: String,
+    // Note: path field kept for potential future features (e.g., detailed error reporting)
     #[allow(dead_code)]
     path: PathBuf,
     has_kbuild: bool,
@@ -50,6 +52,7 @@ impl CrateInfo {
 
 #[derive(Debug)]
 struct Workspace {
+    // Note: root field kept for potential future features (e.g., relative path resolution)
     #[allow(dead_code)]
     root: PathBuf,
     crates: Vec<CrateInfo>,
@@ -103,6 +106,7 @@ impl Workspace {
         })
     }
     
+    // Note: find_crate method kept for potential future features (e.g., dependency graph analysis)
     #[allow(dead_code)]
     fn find_crate(&self, name: &str) -> Option<&CrateInfo> {
         self.crates.iter().find(|c| c.name == name)
@@ -110,6 +114,7 @@ impl Workspace {
 }
 
 /// Check if a dependency package supports kbuild
+/// Note: Function kept for potential future validation features
 #[allow(dead_code)]
 fn is_dependency_kbuild_enabled(workspace: &Workspace, pkg_name: &str) -> bool {
     if let Some(dep_crate) = workspace.find_crate(pkg_name) {
@@ -638,11 +643,11 @@ fn print_version() {
 }
 
 /// Build command - main build logic
-fn cmd_build(args: &[String]) {
+fn cmd_build(command_args: &[String]) {
     // Find --kconfig argument
-    let kconfig_path = args.iter()
+    let kconfig_path = command_args.iter()
         .position(|arg| arg == "--kconfig")
-        .and_then(|i| args.get(i + 1))
+        .and_then(|i| command_args.get(i + 1))
         .map(|s| s.as_str())
         .unwrap_or(".config");
     
@@ -677,7 +682,7 @@ fn main() {
     match command_args[0].as_str() {
         "init" => cmd_init(),
         "check" => cmd_check(),
-        "build" => cmd_build(&args),
+        "build" => cmd_build(command_args),
         "--help" | "-h" | "help" => print_help(),
         "--version" | "-v" | "version" => print_version(),
         cmd => {
