@@ -1,3 +1,4 @@
+#[cfg(CONFIG_SMP)]
 use kernel_irq;
 
 pub struct Task {
