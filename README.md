@@ -233,11 +233,13 @@ rustflags = [
 
 | Approach | build.rs (Traditional) | .cargo/config.toml (cargo-kbuild) |
 |----------|------------------------|-----------------------------------|
-| **Files needed** | One build.rs per crate | ❌ Zero build.rs files! |
+| **Files needed** | One build.rs per crate | ❌ Zero build.rs files!* |
 | **Maintenance** | Manual updates | ✅ Auto-generated |
 | **Build overhead** | Runs build scripts | ✅ Pure configuration |
 | **Sync issues** | Can get out of sync | ✅ Always in sync |
 | **Performance** | Slower (script execution) | ✅ Faster (no scripts) |
+
+*Note: `kbuild_config` crate has a build.rs for a different purpose (copying generated config.rs), not for declaring CONFIG_* cfgs.
 
 ### Developer Experience
 
