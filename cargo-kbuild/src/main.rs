@@ -208,7 +208,20 @@ fn validate_features(workspace: &Workspace) -> Result<(), String> {
     Ok(())
 }
 
-/// Collect all CONFIG_* feature names from workspace crates
+/// Collect all CONFIG_* names from .config file
+fn collect_all_configs_from_file(config: &HashMap<String, String>) -> HashSet<String> {
+    let mut configs = HashSet::new();
+    
+    for key in config.keys() {
+        if key.starts_with("CONFIG_") {
+            configs.insert(key.clone());
+        }
+    }
+    
+    configs
+}
+
+/// Collect all CONFIG_* feature names from workspace crates (for validation only)
 fn collect_all_configs(workspace: &Workspace) -> HashSet<String> {
     let mut configs = HashSet::new();
     
@@ -346,36 +359,45 @@ fn build(workspace_root: &Path, config_path: &Path) -> Result<(), String> {
     // Parse workspace
     let workspace = Workspace::new(workspace_root.to_path_buf())?;
     
-    // Collect all CONFIG_* names and generate .cargo/config.toml
-    let all_configs = collect_all_configs(&workspace);
+    // Parse .config first to get all CONFIG_* options
+    let config = parse_config(config_path)?;
+    
+    // Collect all CONFIG_* names from .config file and generate .cargo/config.toml
+    let all_configs = collect_all_configs_from_file(&config);
     generate_cargo_config(workspace_root, &all_configs)?;
     println!();
     
     // Validate features
     validate_features(&workspace)?;
     
-    // Parse .config
-    let config = parse_config(config_path)?;
-    
     // Generate config.rs file with constants
     generate_config_rs(workspace_root, &config)?;
     println!();
     
-    // Generate features
+    // Generate features - only include features that are declared in Cargo.toml
     let features = generate_features(&config);
+    let declared_features = collect_all_configs(&workspace);
+    
+    // Filter to only features that are actually declared in Cargo.toml
+    let filtered_features: Vec<String> = features.into_iter()
+        .filter(|f| declared_features.contains(f))
+        .collect();
     
     println!("📋 Enabled features from .config:");
-    for feature in &features {
+    for feature in &filtered_features {
         println!("  - {}", feature);
+    }
+    if filtered_features.is_empty() {
+        println!("  (none - all CONFIG_* used via cfg flags)");
     }
     println!();
     
     // Build cargo command
     let mut cargo_args = vec!["build".to_string()];
     
-    if !features.is_empty() {
+    if !filtered_features.is_empty() {
         cargo_args.push("--features".to_string());
-        cargo_args.push(features.join(","));
+        cargo_args.push(filtered_features.join(","));
     }
     
     println!("🚀 Running: cargo {}\n", cargo_args.join(" "));
@@ -383,20 +405,22 @@ fn build(workspace_root: &Path, config_path: &Path) -> Result<(), String> {
     // Set RUSTFLAGS to enable CONFIG_* as cfg values and declare them for check-cfg
     let mut rustflags = String::new();
     
-    // Add check-cfg declarations for all CONFIG_* options
-    for config in all_configs.iter() {
+    // Add check-cfg declarations for all CONFIG_* options from .config
+    for config_name in all_configs.iter() {
         if !rustflags.is_empty() {
             rustflags.push(' ');
         }
-        rustflags.push_str(&format!("--check-cfg=cfg({})", config));
+        rustflags.push_str(&format!("--check-cfg=cfg({})", config_name));
     }
     
-    // Add --cfg flags for enabled features
-    for feature in &features {
-        if !rustflags.is_empty() {
-            rustflags.push(' ');
+    // Add --cfg flags for ALL enabled configs from .config (not just features)
+    for (key, value) in &config {
+        if key.starts_with("CONFIG_") && (value == "y" || value == "m") {
+            if !rustflags.is_empty() {
+                rustflags.push(' ');
+            }
+            rustflags.push_str(&format!("--cfg {}", key));
         }
-        rustflags.push_str(&format!("--cfg {}", feature));
     }
     
     let mut cmd = process::Command::new("cargo");
@@ -418,202 +442,9 @@ fn build(workspace_root: &Path, config_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Initialize project configuration
-fn cmd_init() {
-    println!("🚀 Initializing cargo-kbuild configuration...\n");
-    
-    let workspace_root = match std::env::current_dir() {
-        Ok(dir) => dir,
-        Err(e) => {
-            eprintln!("❌ Error: Failed to get current directory: {}", e);
-            process::exit(1);
-        }
-    };
-    
-    // Parse workspace
-    let workspace = match Workspace::new(workspace_root.clone()) {
-        Ok(ws) => ws,
-        Err(e) => {
-            eprintln!("❌ Error: {}", e);
-            process::exit(1);
-        }
-    };
-    
-    // Collect all CONFIG_* features
-    let all_configs = collect_all_configs(&workspace);
-    
-    if all_configs.is_empty() {
-        println!("⚠️  No CONFIG_* features found in workspace");
-        println!("   Please add CONFIG_* features to your crate's Cargo.toml");
-        process::exit(0);
-    }
-    
-    println!("📋 Found {} CONFIG_* features:", all_configs.len());
-    let mut sorted_configs: Vec<_> = all_configs.iter().collect();
-    sorted_configs.sort();
-    for config in &sorted_configs {
-        println!("   - {}", config);
-    }
-    println!();
-    
-    // Generate .config template
-    let config_path = workspace_root.join(".config");
-    if config_path.exists() {
-        println!("ℹ️  .config file already exists, skipping template generation");
-    } else {
-        let mut content = String::from("# Kernel Configuration File\n");
-        content.push_str("# Generated by cargo-kbuild init\n");
-        content.push_str("# Edit this file to enable/disable features\n\n");
-        
-        for config in &sorted_configs {
-            // Default to disabled
-            content.push_str(&format!("# {}=y\n", config));
-        }
-        
-        if let Err(e) = fs::write(&config_path, content) {
-            eprintln!("❌ Error: Failed to write .config: {}", e);
-            process::exit(1);
-        }
-        println!("✅ Created .config template");
-    }
-    
-    // Update .gitignore
-    let gitignore_path = workspace_root.join(".gitignore");
-    let gitignore_content = fs::read_to_string(&gitignore_path).unwrap_or_default();
-    
-    let entries_to_add = vec![
-        ".cargo/config.toml",
-        "target/",
-    ];
-    
-    let mut needs_update = false;
-    let mut new_entries = Vec::new();
-    
-    for entry in &entries_to_add {
-        if !gitignore_content.lines().any(|line| line.trim() == *entry) {
-            needs_update = true;
-            new_entries.push(*entry);
-        }
-    }
-    
-    if needs_update {
-        let mut updated_content = gitignore_content;
-        if !updated_content.is_empty() && !updated_content.ends_with('\n') {
-            updated_content.push('\n');
-        }
-        updated_content.push_str("\n# cargo-kbuild generated files\n");
-        for entry in new_entries {
-            updated_content.push_str(entry);
-            updated_content.push('\n');
-        }
-        
-        if let Err(e) = fs::write(&gitignore_path, updated_content) {
-            eprintln!("⚠️  Warning: Failed to update .gitignore: {}", e);
-        } else {
-            println!("✅ Updated .gitignore");
-        }
-    }
-    
-    println!();
-    println!("✨ Initialization complete!");
-    println!();
-    println!("Next steps:");
-    println!("1. Edit .config file to enable features (change # CONFIG_X=y to CONFIG_X=y)");
-    println!("2. Run 'cargo-kbuild build' to compile your project");
-    println!();
-}
 
-/// Check configuration validity
-fn cmd_check() {
-    println!("🔍 Checking configuration...\n");
-    
-    let workspace_root = match std::env::current_dir() {
-        Ok(dir) => dir,
-        Err(e) => {
-            eprintln!("❌ Error: Failed to get current directory: {}", e);
-            process::exit(1);
-        }
-    };
-    
-    let config_path = workspace_root.join(".config");
-    
-    // Check if .config exists
-    if !config_path.exists() {
-        eprintln!("❌ Error: .config file not found");
-        eprintln!("   Run 'cargo-kbuild init' to create a template");
-        process::exit(1);
-    }
-    
-    // Parse workspace
-    let workspace = match Workspace::new(workspace_root.clone()) {
-        Ok(ws) => ws,
-        Err(e) => {
-            eprintln!("❌ Error: {}", e);
-            process::exit(1);
-        }
-    };
-    
-    // Parse .config
-    let config = match parse_config(&config_path) {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            eprintln!("❌ Error: {}", e);
-            process::exit(1);
-        }
-    };
-    
-    println!("✓ .config syntax is valid");
-    
-    // Validate features
-    if let Err(e) = validate_features(&workspace) {
-        eprintln!("{}", e);
-        process::exit(1);
-    }
-    
-    // Collect all defined CONFIG_* in workspace
-    let all_configs = collect_all_configs(&workspace);
-    
-    // Check for unused configs in .config
-    let mut unused_configs = Vec::new();
-    for (key, _value) in &config {
-        if key.starts_with("CONFIG_") && !all_configs.contains(key) {
-            unused_configs.push(key.clone());
-        }
-    }
-    
-    if !unused_configs.is_empty() {
-        println!();
-        println!("⚠️  Warning: The following configs are defined in .config but not declared in any crate:");
-        for config in &unused_configs {
-            println!("   - {}", config);
-        }
-        println!();
-        println!("ℹ️  Suggestion: Remove them from .config or declare them as features in a crate's Cargo.toml");
-    }
-    
-    // Check for undefined configs
-    let mut undefined_configs = Vec::new();
-    for config_name in &all_configs {
-        if !config.contains_key(config_name) {
-            undefined_configs.push(config_name);
-        }
-    }
-    
-    if !undefined_configs.is_empty() {
-        println!();
-        println!("ℹ️  Info: The following features are declared but not configured in .config:");
-        let mut sorted: Vec<_> = undefined_configs.iter().collect();
-        sorted.sort();
-        for config in sorted {
-            println!("   - {}", config);
-        }
-        println!();
-        println!("ℹ️  These features will be disabled unless explicitly enabled in .config");
-    }
-    
-    println!();
-    println!("✅ Configuration check complete!");
-}
+
+
 
 /// Print help message
 fn print_help() {
@@ -623,17 +454,19 @@ fn print_help() {
     println!("    cargo-kbuild <COMMAND>");
     println!();
     println!("COMMANDS:");
-    println!("    init       Initialize project configuration");
-    println!("    check      Verify configuration and feature dependencies");
     println!("    build      Build project with current configuration");
     println!("    --help     Print this help message");
     println!("    --version  Print version information");
     println!();
     println!("EXAMPLES:");
-    println!("    cargo-kbuild init              # Create .config template");
-    println!("    cargo-kbuild check             # Validate configuration");
     println!("    cargo-kbuild build             # Build with .config");
     println!("    cargo-kbuild build --kconfig custom.config  # Use custom config file");
+    println!();
+    println!("NOTES:");
+    println!("    - The .config file should be generated by external Kconfig tools");
+    println!("      (e.g., Linux's 'make menuconfig')");
+    println!("    - cargo-kbuild reads .config, generates config.rs, and builds your project");
+    println!("    - CONFIG_* features are only needed for optional dependencies");
     println!();
 }
 
@@ -680,8 +513,6 @@ fn main() {
     }
     
     match command_args[0].as_str() {
-        "init" => cmd_init(),
-        "check" => cmd_check(),
         "build" => cmd_build(command_args),
         "--help" | "-h" | "help" => print_help(),
         "--version" | "-v" | "version" => print_version(),

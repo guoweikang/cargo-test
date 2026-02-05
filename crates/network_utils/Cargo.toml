@@ -5,6 +5,3 @@ edition = "2021"
 
 [package.metadata.kbuild]
 enabled = true
-
-[features]
-CONFIG_ASYNC = []
