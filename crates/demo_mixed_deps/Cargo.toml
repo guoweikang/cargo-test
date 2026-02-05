@@ -1,0 +1,18 @@
+[package]
+name = "demo_mixed_deps"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.kbuild]
+enabled = true
+
+[dependencies]
+kbuild_config = { path = "../kbuild_config" }
+
+[features]
+# This crate demonstrates using config constants from kbuild_config
+# It doesn't need optional dependencies for this demo
+CONFIG_NET = []
+
+# Note: If we had log as dependency, this would be correct:
+# CONFIG_LOGGING = ["log/std"]  # ✅ Third-party sub-feature allowed

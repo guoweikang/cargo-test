@@ -134,7 +134,14 @@ fn validate_features(workspace: &Workspace) -> Result<(), String> {
         .map(|c| c.name.clone())
         .collect();
     
-    // 2. Validate each kbuild-enabled crate's features
+    // 2. Build a set of all workspace packages
+    let workspace_packages: HashSet<String> = workspace
+        .crates
+        .iter()
+        .map(|c| c.name.clone())
+        .collect();
+    
+    // 3. Validate each kbuild-enabled crate's features
     for crate_info in workspace.crates.iter().filter(|c| c.is_kbuild_enabled()) {
         for (feature_name, deps) in &crate_info.features {
             // Only check CONFIG_* features
@@ -144,46 +151,42 @@ fn validate_features(workspace: &Workspace) -> Result<(), String> {
             
             for dep in deps {
                 // Check if sub-feature is specified
-                if let Some((pkg_name, _sub_feature)) = dep.split_once('/') {
+                if let Some((pkg_name, sub_feature)) = dep.split_once('/') {
                     // Key decision: Does the dependency support kbuild?
                     if kbuild_packages.contains(pkg_name) {
-                        // Supports kbuild → Error
+                        // ❌ Error: kbuild-enabled workspace crate cannot specify sub-feature
                         return Err(format!(
                             "❌ Error in crate '{}':\n\
                              \n\
                              Feature '{}' specifies sub-feature: '{}'\n\
                              \n\
-                             Dependency '{}' has kbuild enabled:\n\
-                             - It should control its own features by reading .config\n\
-                             - Cannot be controlled by dependent crates\n\
-                             \n\
-                             Expected: '{}'\n\
-                             Found:    '{}'\n\
+                             Dependency '{}' is kbuild-enabled:\n\
+                             - It reads CONFIG_* from .config directly\n\
+                             - Cannot be controlled by parent crate\n\
                              \n\
                              Solution:\n\
-                             1. Change '{}' to '{}' in [features]\n\
-                             2. Ensure '{}' reads CONFIG_* from .config\n\
+                             1. Change to: {} = [\"{}\"]\n\
+                             2. Enable {} in .config file\n\
                              \n\
-                             Or, if '{}' should NOT use kbuild:\n\
-                             - Remove [package.metadata.kbuild] from {}/Cargo.toml\n\
-                             - Remove CONFIG_* features from {}\n",
+                             Note: Third-party crates (e.g., log/std, tokio/rt) are allowed sub-features.\n",
                             crate_info.name,
                             feature_name,
                             dep,
                             pkg_name,
-                            pkg_name,
-                            dep,
-                            dep, pkg_name,
-                            pkg_name,
-                            pkg_name,
-                            pkg_name, pkg_name
+                            feature_name, pkg_name,
+                            sub_feature
                         ));
-                    } else {
-                        // Does not support kbuild → Allow (with info message)
+                    } else if workspace_packages.contains(pkg_name) {
+                        // ℹ️ Info: Non-kbuild workspace crate - sub-feature allowed
                         eprintln!(
-                            "ℹ️  Info: Feature '{}' in '{}' specifies '{}'\n\
-                             Dependency '{}' does not support kbuild, this is allowed.\n",
-                            feature_name, crate_info.name, dep, pkg_name
+                            "ℹ️  '{}' is not kbuild-enabled, sub-feature allowed: {}\n",
+                            pkg_name, dep
+                        );
+                    } else {
+                        // ℹ️ Info: Third-party library - sub-feature allowed
+                        eprintln!(
+                            "ℹ️  '{}' is third-party, sub-feature allowed: {}\n",
+                            pkg_name, dep
                         );
                     }
                 }
@@ -228,6 +231,58 @@ fn generate_features(config: &HashMap<String, String>) -> Vec<String> {
     features
 }
 
+/// Generate config.rs file with constants
+fn generate_config_rs(workspace_root: &Path, config: &HashMap<String, String>) -> Result<(), String> {
+    // Create target/kbuild directory
+    let target_dir = workspace_root.join("target/kbuild");
+    fs::create_dir_all(&target_dir)
+        .map_err(|e| format!("Failed to create target/kbuild: {}", e))?;
+    
+    let config_rs_path = target_dir.join("config.rs");
+    
+    // Generate config.rs content
+    let mut content = String::new();
+    content.push_str("// Auto-generated by cargo-kbuild from .config\n");
+    content.push_str("// DO NOT EDIT MANUALLY\n\n");
+    
+    // Process each config value
+    for (key, value) in config {
+        if !key.starts_with("CONFIG_") {
+            continue;
+        }
+        
+        // Skip boolean configs (y/n) as they're handled via --cfg
+        if value == "y" || value == "n" || value == "m" {
+            continue;
+        }
+        
+        // Try to parse as integer
+        if let Ok(int_val) = value.parse::<i32>() {
+            content.push_str(&format!("#[allow(dead_code)]\n"));
+            content.push_str(&format!("pub const {}: i32 = {};\n\n", key, int_val));
+        }
+        // Check if it's a string (starts and ends with quotes)
+        else if value.starts_with('"') && value.ends_with('"') {
+            let str_val = &value[1..value.len()-1]; // Remove quotes
+            content.push_str(&format!("#[allow(dead_code)]\n"));
+            content.push_str(&format!("pub const {}: &str = \"{}\";\n\n", key, str_val));
+        }
+        // Otherwise treat as usize
+        else if let Ok(uint_val) = value.parse::<usize>() {
+            content.push_str(&format!("#[allow(dead_code)]\n"));
+            content.push_str(&format!("pub const {}: usize = {};\n\n", key, uint_val));
+        }
+    }
+    
+    // Write the file
+    fs::write(&config_rs_path, content)
+        .map_err(|e| format!("Failed to write config.rs: {}", e))?;
+    
+    println!("📝 Generated config.rs at: {}", config_rs_path.display());
+    
+    Ok(())
+}
+
 /// Build command
 fn build(workspace_root: &Path, config_path: &Path) -> Result<(), String> {
     println!("🔨 Starting cargo-kbuild build...\n");
@@ -240,6 +295,10 @@ fn build(workspace_root: &Path, config_path: &Path) -> Result<(), String> {
     
     // Parse .config
     let config = parse_config(config_path)?;
+    
+    // Generate config.rs file with constants
+    generate_config_rs(workspace_root, &config)?;
+    println!();
     
     // Generate features
     let features = generate_features(&config);

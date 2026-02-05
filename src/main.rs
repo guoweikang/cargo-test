@@ -5,6 +5,9 @@ use legacy_driver::driver_init;
 #[cfg(CONFIG_NET)]
 use kernel_net::net_init;
 
+#[cfg(CONFIG_NET)]
+use demo_mixed_deps;
+
 fn main() {
     println!("🚀 ============================================");
     println!("🚀  Cargo-Kbuild MVP Demo");
@@ -36,6 +39,13 @@ fn main() {
     #[cfg(CONFIG_NET)]
     {
         net_init();
+        println!();
+    }
+    
+    // Demo mixed dependencies with config constants
+    #[cfg(CONFIG_NET)]
+    {
+        demo_mixed_deps::demo();
         println!();
     }
     
