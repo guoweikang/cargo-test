@@ -362,6 +362,16 @@ fn generate_config_rs(workspace_root: &Path, config: &HashMap<String, String>) -
 }
 
 /// Apply kbuild configuration and run cargo command
+///
+/// # Arguments
+/// * `workspace_root` - Root directory of the workspace
+/// * `config_path` - Path to the .config file
+/// * `cargo_cmd` - The cargo command to run (e.g., "build", "test", "check")
+/// * `extra_args` - Additional arguments passed to cargo
+///
+/// # Returns
+/// * `Ok(())` on success
+/// * `Err(String)` with error message on failure
 fn apply_kbuild_config(
     workspace_root: &Path,
     config_path: &Path,
@@ -376,7 +386,7 @@ fn apply_kbuild_config(
     // Validate features
     validate_features(&workspace)?;
     
-    // Parse .config first to get all CONFIG_* options
+    // Parse .config to get all CONFIG_* options
     let config = parse_config(config_path)?;
     
     // Generate config.rs file with constants
@@ -518,6 +528,11 @@ fn extract_kconfig_arg(args: &[String]) -> (Option<PathBuf>, Vec<String>) {
 }
 
 /// Forward cargo command with kbuild configuration applied
+///
+/// # Arguments
+/// * `cargo_cmd` - The cargo subcommand to execute (e.g., "build", "test", "run")
+/// * `args` - Additional arguments to pass to the cargo command
+/// * `kconfig_path` - Optional path to kconfig file (defaults to ".config" if None)
 fn cmd_cargo_wrapper(cargo_cmd: &str, args: &[String], kconfig_path: Option<PathBuf>) {
     let workspace_root = env::current_dir()
         .expect("Failed to get current directory");
