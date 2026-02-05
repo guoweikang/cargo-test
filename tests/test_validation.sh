@@ -142,7 +142,7 @@ echo
 
 echo "Test 7: 🚀 Run demo application"
 echo "----------------------------------------------------"
-if ./target/debug/cargo-test 2>&1 | grep -q "kernel initialization"; then
+if ./target/debug/cargo-test 2>&1 | grep -q "Cargo-Kbuild MVP Demo"; then
     echo "✅ Demo application runs successfully"
 else
     echo "❌ Demo application failed"
