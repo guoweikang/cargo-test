@@ -26,10 +26,15 @@ Linux Kconfig-style configuration system for Rust/Cargo projects.
    CONFIG_DEFAULT_SCHEDULER="cfs"
    ```
 
-3. **Build**:
+3. **Use like cargo**:
    ```bash
    cargo-kbuild build
+   cargo-kbuild test
+   cargo-kbuild run
+   cargo-kbuild check
    ```
+
+All your CONFIG_* settings are automatically applied!
 
 ## Architecture
 
@@ -51,7 +56,12 @@ Linux Kconfig-style configuration system for Rust/Cargo projects.
 
 ```bash
 cargo-kbuild build                           # Build with .config
+cargo-kbuild test                            # Run tests with .config
+cargo-kbuild run                             # Run binary with .config
+cargo-kbuild check                           # Check code with .config
+cargo-kbuild clippy                          # Run clippy with .config
 cargo-kbuild build --kconfig custom.config  # Use custom config
+cargo-kbuild test --lib -- --nocapture      # Pass args through
 cargo-kbuild --help                          # Show help
 cargo-kbuild --version                       # Show version
 ```
