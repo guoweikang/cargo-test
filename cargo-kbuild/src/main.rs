@@ -168,6 +168,14 @@ fn generate_cargo_config(workspace_root: &Path, configs: &HashSet<String>) -> Re
 }
 
 /// Generate config.rs with constants from .config
+/// 
+/// This function creates a Rust source file with constants derived from .config entries.
+/// Value mapping:
+/// - "y" or "m" → bool = true
+/// - "n" → bool = false
+/// - Quoted strings (e.g., "value") → &str = "value"
+/// - Numeric values → i64 = value
+/// - Other values → &str = "value"
 fn generate_config_rs(workspace_root: &Path, config: &HashMap<String, String>) -> Result<(), String> {
     let target_dir = workspace_root.join("target").join("kbuild");
     fs::create_dir_all(&target_dir)
@@ -209,7 +217,8 @@ fn generate_config_rs(workspace_root: &Path, config: &HashMap<String, String>) -
     fs::write(&config_rs_path, content)
         .map_err(|e| format!("Failed to write config.rs: {}", e))?;
     
-    println!("✅ Generated target/kbuild/config.rs with {} constants", config.len());
+    let config_count = config.iter().filter(|(k, _)| k.starts_with("CONFIG_")).count();
+    println!("✅ Generated target/kbuild/config.rs with {} constants", config_count);
     Ok(())
 }
 
