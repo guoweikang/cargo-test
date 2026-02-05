@@ -1,9 +1,9 @@
 pub fn driver_init() {
-    println!("🚗 [LEGACY] 传统驱动初始化");
+    println!("🚗 [LEGACY] Initializing legacy drivers");
     
     #[cfg(feature = "usb")]
-    println!("🚗 [LEGACY] USB 驱动已加载");
+    println!("🚗 [LEGACY] USB driver loaded");
     
     #[cfg(feature = "pci")]
-    println!("🚗 [LEGACY] PCI 驱动已加载");
+    println!("🚗 [LEGACY] PCI driver loaded");
 }

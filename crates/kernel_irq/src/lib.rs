@@ -1,9 +1,9 @@
 pub fn init_irq() {
-    println!("⚡ [IRQ] 中断子系统初始化");
+    println!("⚡ [IRQ] Initializing interrupt subsystem");
     
     #[cfg(CONFIG_SMP)]
-    println!("⚡ [IRQ] SMP 中断路由已启用");
+    println!("⚡ [IRQ] SMP interrupt routing enabled");
     
     #[cfg(not(CONFIG_SMP))]
-    println!("⚡ [IRQ] 单核中断模式");
+    println!("⚡ [IRQ] Single-core interrupt mode");
 }

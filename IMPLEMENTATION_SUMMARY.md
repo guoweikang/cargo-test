@@ -116,31 +116,31 @@ cargo-test/
 
 ```
 🚀 ============================================
-🚀  Cargo-Kbuild MVP Demo
+🚀  Cargo-Kbuild Demo
 🚀 ============================================
 
-🔄 [SCHEDULE] 调度器初始化
-⚡ [IRQ] 中断子系统初始化
-⚡ [IRQ] SMP 中断路由已启用
-📋 [TASK] SMP 任务系统初始化
-🔄 [SCHEDULE] SMP 调度器已启用
-🔄 [SCHEDULE] 抢占式调度已启用
+🔄 [SCHEDULE] Initializing scheduler
+⚡ [IRQ] Initializing interrupt subsystem
+⚡ [IRQ] SMP interrupt routing enabled
+📋 [TASK] SMP task system initialized
+🔄 [SCHEDULE] SMP scheduler enabled
+🔄 [SCHEDULE] Preemptive scheduling enabled
 
-📋 [TASK] 创建任务 1 (绑定到 CPU 0)
-📋 [TASK] 创建任务 2 (绑定到 CPU 1)
-🔄 [SCHEDULE] 调度任务 1 到 CPU 0
-🔄 [SCHEDULE] 调度任务 2 到 CPU 1
+📋 [TASK] Creating task 1 (bound to CPU 0)
+📋 [TASK] Creating task 2 (bound to CPU 1)
+🔄 [SCHEDULE] Scheduling task 1 on CPU 0
+🔄 [SCHEDULE] Scheduling task 2 on CPU 1
 
-🌐 [NET] 网络子系统初始化
-🔧 [NETWORK_UTILS] 初始化网络工具
-🔧 [NETWORK_UTILS] 异步网络支持已启用
-🌐 [NET] 网络工具库已加载
-📝 [NET] 日志系统已启用
+🌐 [NET] Initializing network subsystem
+🔧 [NETWORK_UTILS] Initializing network utilities
+🔧 [NETWORK_UTILS] Async network support enabled
+🌐 [NET] Network utilities loaded
+📝 [NET] Logging system enabled
 
-🚗 [LEGACY] 传统驱动初始化
+🚗 [LEGACY] Initializing legacy drivers
 
 🎉 ============================================
-🎉  系统初始化完成
+🎉  System initialization complete
 🎉 ============================================
 ```
 
