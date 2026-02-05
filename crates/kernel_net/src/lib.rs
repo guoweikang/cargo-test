@@ -1,14 +1,14 @@
 use network_utils;
 
 pub fn net_init() {
-    println!("🌐 [NET] 网络子系统初始化");
+    println!("🌐 [NET] Initializing network subsystem");
     
     network_utils::init();
-    println!("🌐 [NET] 网络工具库已加载");
+    println!("🌐 [NET] Network utilities loaded");
     
     #[cfg(CONFIG_LOGGING)]
     {
         // In a real scenario, this would use log crate
-        println!("📝 [NET] 日志系统已启用");
+        println!("📝 [NET] Logging system enabled");
     }
 }

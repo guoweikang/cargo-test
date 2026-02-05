@@ -10,7 +10,7 @@ use demo_mixed_deps;
 
 fn main() {
     println!("🚀 ============================================");
-    println!("🚀  Cargo-Kbuild MVP Demo");
+    println!("🚀  Cargo-Kbuild Demo");
     println!("🚀 ============================================\n");
 
     // Initialize scheduler
@@ -53,6 +53,6 @@ fn main() {
     driver_init();
     
     println!("\n🎉 ============================================");
-    println!("🎉  系统初始化完成");
+    println!("🎉  System initialization complete");
     println!("🎉 ============================================");
 }

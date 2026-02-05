@@ -70,6 +70,13 @@ impl Workspace {
         let workspace_toml: toml::Value = toml::from_str(&workspace_toml_content)
             .map_err(|e| format!("Failed to parse workspace Cargo.toml: {}", e))?;
         
+        // Parse root package if it exists
+        if workspace_toml.get("package").is_some() {
+            if let Ok(root_crate) = Self::parse_crate(&root) {
+                crates.push(root_crate);
+            }
+        }
+        
         // Get workspace members
         let members = workspace_toml
             .get("workspace")
@@ -221,11 +228,12 @@ fn collect_all_configs_from_file(config: &HashMap<String, String>) -> HashSet<St
     configs
 }
 
-/// Collect all CONFIG_* feature names from workspace crates (for validation only)
+/// Collect all CONFIG_* feature names from workspace crates (including root package)
 fn collect_all_configs(workspace: &Workspace) -> HashSet<String> {
     let mut configs = HashSet::new();
     
-    for crate_info in workspace.crates.iter().filter(|c| c.is_kbuild_enabled()) {
+    // Collect from all crates (not just kbuild-enabled) to include root package features
+    for crate_info in workspace.crates.iter() {
         for feature_name in crate_info.features.keys() {
             if feature_name.starts_with("CONFIG_") {
                 configs.insert(feature_name.clone());

@@ -1,532 +1,496 @@
-# cargo-kbuild 用户指南
+# cargo-kbuild User Guide
 
-cargo-kbuild 是一个让 Rust 项目能够使用 Kconfig 风格全局配置的构建工具。
+A build tool that brings Linux Kconfig-style global configuration to Rust/Cargo projects.
 
-## 安装
+## Installation
 
-从源码安装：
+Install from source:
+
 ```bash
 git clone https://github.com/guoweikang/cargo-test.git
 cd cargo-test
 cargo install --path cargo-kbuild
 ```
 
-验证安装：
+Verify installation:
+
 ```bash
 cargo-kbuild --version
 ```
 
-## 基本用法
+## Quick Start
 
-### 1. 初始化项目
+### 1. Create Configuration File
 
-在 workspace 根目录运行：
+Create a `.config` file in your workspace root using external Kconfig tools (like Linux's `make menuconfig`) or manually:
+
 ```bash
-cargo-kbuild init
-```
-
-这会：
-- 扫描所有 `CONFIG_*` features
-- 生成 `.config` 模板文件
-- 更新 `.gitignore` 排除自动生成的文件
-
-### 2. 配置项目
-
-编辑生成的 `.config` 文件：
-```bash
-# 启用功能：将注释去掉
+# Boolean configs (y = enabled, n = disabled)
 CONFIG_SMP=y
 CONFIG_NET=y
+CONFIG_PREEMPT=y
 
-# 禁用功能：设为 n 或注释掉
-# CONFIG_DEBUG=n
-
-# 数值配置
+# Integer configs
 CONFIG_LOG_LEVEL=3
 CONFIG_MAX_CPUS=8
 
-# 字符串配置
+# String configs
 CONFIG_DEFAULT_SCHEDULER="cfs"
 ```
 
-### 3. 验证配置
+### 2. Enable Kbuild in Crates
 
-在构建前检查配置有效性：
-```bash
-cargo-kbuild check
+Add to your crate's `Cargo.toml`:
+
+```toml
+[package.metadata.kbuild]
+enabled = true
 ```
 
-会检查：
-- `.config` 文件语法
-- 特性依赖关系
-- 未使用的配置项
-- 未定义的特性
+### 3. Build Your Project
 
-### 4. 构建项目
-
-使用默认 `.config` 构建：
 ```bash
 cargo-kbuild build
 ```
 
-使用自定义配置文件：
+With custom config file:
+
 ```bash
 cargo-kbuild build --kconfig custom.config
 ```
 
-## 进阶使用
+## Architecture Overview
 
-### 在 Crate 中启用 kbuild
+### Core Principle
 
-有两种方式启用 kbuild 支持：
+**`.config` is EXTERNAL** - cargo-kbuild reads it, never creates it.
 
-**方式 1：显式启用（推荐）**
-```toml
-[package]
-name = "my-kernel-module"
-
-[package.metadata.kbuild]
-enabled = true
-
-[features]
-CONFIG_SMP = []
-CONFIG_PREEMPT = []
+```
+External Kconfig Tool → .config → cargo-kbuild → Compiled Project
+(make menuconfig)       (read)    (apply)       (ready to run)
 ```
 
-**方式 2：隐式启用**
+### What cargo-kbuild Does
 
-只要定义 `CONFIG_*` 开头的 features，就会自动启用：
-```toml
-[features]
-CONFIG_NET = []
-CONFIG_ASYNC = []
-```
+1. **Read** existing `.config` file
+2. **Generate** `target/kbuild/config.rs` with constants
+3. **Generate** `.cargo/config.toml` for zero warnings
+4. **Set** RUSTFLAGS with `--cfg` flags
+5. **Validate** dependency relationships
+6. **Call** `cargo build` with appropriate flags
 
-### 使用配置值
+### What cargo-kbuild Does NOT Do
 
-#### 布尔配置
+- ❌ Generate `.config` files
+- ❌ Provide interactive configuration UI
+- ❌ Manage config templates
+
+## Using Configurations
+
+### Boolean Configurations
+
+Use directly in code with `#[cfg]` attributes:
 
 ```rust
 #[cfg(CONFIG_SMP)]
-fn init_smp_subsystem() {
-    println!("Initializing SMP");
+fn init_smp() {
+    println!("SMP mode enabled");
 }
 
 #[cfg(not(CONFIG_SMP))]
-fn init_up_subsystem() {
-    println!("Initializing UP");
+fn init_single_core() {
+    println!("Single-core mode");
 }
 ```
 
-#### 数值和字符串配置
+**No declaration needed in Cargo.toml** - cargo-kbuild handles it automatically.
 
-首先，添加 `kbuild_config` 依赖：
+### Integer and String Configurations
+
+First, add the `kbuild_config` dependency:
+
 ```toml
 [dependencies]
 kbuild_config = { path = "../kbuild_config" }
 ```
 
-然后在代码中使用：
+Then use in code:
+
 ```rust
 use kbuild_config::*;
 
-fn init_logging() {
+fn init() {
     println!("Log level: {}", CONFIG_LOG_LEVEL);
-}
-
-fn init_scheduler() {
-    println!("Using {} scheduler", CONFIG_DEFAULT_SCHEDULER);
+    println!("Max CPUs: {}", CONFIG_MAX_CPUS);
+    println!("Scheduler: {}", CONFIG_DEFAULT_SCHEDULER);
 }
 ```
 
-### 依赖关系规则
+## Feature Declaration Rules
 
-cargo-kbuild 对特性依赖有严格的验证规则：
+### When to Declare CONFIG_* Features
 
-#### ✅ 允许的依赖方式
+**ONLY when you have optional dependencies:**
 
-1. **依赖支持 kbuild 的 crate（不指定子特性）**
 ```toml
+# ✅ CORRECT: Has optional dependency
+[dependencies]
+kernel_net = { path = "crates/kernel_net", optional = true }
+
 [features]
-CONFIG_NET = ["network_utils"]  # ✅ 正确
+CONFIG_NET = ["kernel_net"]  # Enables the optional dependency
 ```
 
-2. **依赖第三方库（可以指定子特性）**
+### When NOT to Declare Features
+
+**When using configs in code without optional dependencies:**
+
 ```toml
-[features]
-CONFIG_LOGGING = ["log/std"]    # ✅ 正确
-CONFIG_ASYNC = ["tokio/rt"]     # ✅ 正确
+# ✅ CORRECT: Using CONFIG_SMP in code, no optional deps
+[package.metadata.kbuild]
+enabled = true
+
+# No [features] section needed
 ```
 
-3. **依赖不支持 kbuild 的内部 crate（可以指定子特性）**
-```toml
-[features]
-CONFIG_LEGACY = ["legacy_driver/usb"]  # ✅ 正确
+```rust
+// Code can use CONFIG_SMP directly
+#[cfg(CONFIG_SMP)]
+fn init_smp() {
+    println!("SMP enabled");
+}
 ```
 
-#### ❌ 禁止的依赖方式
+### Comparison
 
-不能为支持 kbuild 的依赖指定子特性：
+❌ **WRONG** (old approach):
 ```toml
 [features]
-# ❌ 错误！network_utils 支持 kbuild
+CONFIG_SMP = []       # Don't do this
+CONFIG_PREEMPT = []   # No optional dependency
+CONFIG_LOGGING = []   # Just using in code
+```
+
+✅ **CORRECT** (new architecture):
+```toml
+# Option 1: No optional dependencies
+[package.metadata.kbuild]
+enabled = true
+# No [features] section
+
+# Option 2: Has optional dependencies
+[dependencies]
+tokio = { version = "1.0", optional = true }
+
+[features]
+CONFIG_ASYNC = ["tokio"]  # Only because of optional dep
+```
+
+## Dependency Validation
+
+cargo-kbuild enforces strict validation rules:
+
+### ✅ Allowed Dependencies
+
+1. **Kbuild-enabled crate without sub-features**:
+   ```toml
+   [features]
+   CONFIG_NET = ["network_utils"]  # ✅ Correct
+   ```
+
+2. **Third-party library with sub-features**:
+   ```toml
+   [features]
+   CONFIG_LOGGING = ["log/std"]    # ✅ Correct
+   CONFIG_ASYNC = ["tokio/rt"]     # ✅ Correct
+   ```
+
+3. **Non-kbuild internal crate with sub-features**:
+   ```toml
+   [features]
+   CONFIG_LEGACY = ["legacy_driver/usb"]  # ✅ Correct
+   ```
+
+### ❌ Prohibited Dependencies
+
+Cannot specify sub-features for kbuild-enabled dependencies:
+
+```toml
+[features]
+# ❌ WRONG! network_utils is kbuild-enabled
 CONFIG_NET = ["network_utils/async"]
 ```
 
-原因：支持 kbuild 的 crate 应该自己从 `.config` 读取配置，而不是由父 crate 控制。
+**Why?** Kbuild-enabled crates read their own configs from `.config`. Parent crates cannot control them via sub-features.
 
-### 配置文件格式
+## Configuration File Format
 
-`.config` 文件使用简单的键值对格式：
+The `.config` file uses simple key-value pairs:
 
 ```bash
-# 注释以 # 开头
+# Comments start with #
 
-# 布尔值：y 表示启用，n 表示禁用
+# Boolean values: y = enabled, n = disabled
 CONFIG_SMP=y
 CONFIG_DEBUG=n
 
-# 数值：整数
+# Integer values
 CONFIG_LOG_LEVEL=3
 CONFIG_MAX_CPUS=8
 
-# 字符串：用双引号包围
+# String values: use double quotes
 CONFIG_DEFAULT_SCHEDULER="cfs"
 CONFIG_ARCH="x86_64"
 
-# 禁用功能可以注释掉
+# Disabled features can be commented out
 # CONFIG_EXPERIMENTAL=y
 ```
 
-### 自动生成的文件
+## Auto-Generated Files
 
-cargo-kbuild 会生成以下文件，不应提交到 git：
+cargo-kbuild generates the following files (do NOT commit to git):
 
-1. **`.cargo/config.toml`**
-   - 声明所有 `CONFIG_*` 选项给 rustc
-   - 避免 "unexpected cfg" 警告
-   - 每次 build 时自动重新生成
+### 1. `.cargo/config.toml`
 
-2. **`target/kbuild/config.rs`**
-   - 包含数值和字符串配置的常量
-   - 被 `kbuild_config` crate 包含
+Declares all `CONFIG_*` options to avoid "unexpected cfg" warnings:
 
-这些文件已在 `.gitignore` 中排除。
-
-## 常见场景
-
-### 场景 1：添加新功能
-
-1. 在 crate 的 `Cargo.toml` 中添加 feature：
 ```toml
-[features]
-CONFIG_NEW_FEATURE = []
+# Auto-generated by cargo-kbuild
+[build]
+rustflags = [
+    "--check-cfg=cfg(CONFIG_SMP)",
+    "--check-cfg=cfg(CONFIG_NET)",
+    # ... all CONFIG_* from .config
+]
 ```
 
-2. 运行 `cargo-kbuild check` 查看新功能：
-```bash
-cargo-kbuild check
+### 2. `target/kbuild/config.rs`
+
+Contains integer and string constants:
+
+```rust
+// Auto-generated by cargo-kbuild from .config
+pub const CONFIG_LOG_LEVEL: i32 = 3;
+pub const CONFIG_MAX_CPUS: i32 = 8;
+pub const CONFIG_DEFAULT_SCHEDULER: &str = "cfs";
 ```
 
-3. 在 `.config` 中启用：
+These files are regenerated on every build.
+
+## Common Scenarios
+
+### Scenario 1: Adding a New Feature
+
+1. Use the config in your code:
+   ```rust
+   #[cfg(CONFIG_NEW_FEATURE)]
+   fn new_feature() {
+       println!("New feature enabled");
+   }
+   ```
+
+2. Enable in `.config`:
+   ```bash
+   CONFIG_NEW_FEATURE=y
+   ```
+
+3. Build:
+   ```bash
+   cargo-kbuild build
+   ```
+
+No Cargo.toml changes needed (unless you have optional dependencies).
+
+### Scenario 2: Multiple Configuration Files
+
+Maintain different configs for different environments:
+
 ```bash
-CONFIG_NEW_FEATURE=y
-```
-
-4. 构建：
-```bash
-cargo-kbuild build
-```
-
-### 场景 2：多个配置文件
-
-为不同环境维护多个配置：
-
-```bash
-# 开发配置
+# Development
 cargo-kbuild build --kconfig .config.dev
 
-# 生产配置
+# Production
 cargo-kbuild build --kconfig .config.prod
 
-# 测试配置
+# Testing
 cargo-kbuild build --kconfig .config.test
 ```
 
-### 场景 3：调试配置问题
+### Scenario 3: Debugging Configuration
 
-1. 检查语法和依赖：
-```bash
-cargo-kbuild check
-```
+1. Check enabled features:
+   ```bash
+   grep "=y" .config
+   ```
 
-2. 查看启用了哪些功能：
-```bash
-grep "=y" .config
-```
+2. View generated rustflags:
+   ```bash
+   cat .cargo/config.toml
+   ```
 
-3. 查看生成的 rustflags：
-```bash
-cat .cargo/config.toml
-```
+3. View generated constants:
+   ```bash
+   cat target/kbuild/config.rs
+   ```
 
-### 场景 4：迁移现有项目
-
-1. 为需要全局配置的 features 添加 `CONFIG_` 前缀：
-```toml
-# 之前
-[features]
-smp = []
-
-# 之后
-[features]
-CONFIG_SMP = []
-```
-
-2. 初始化 cargo-kbuild：
-```bash
-cargo-kbuild init
-```
-
-3. 编辑 `.config` 启用功能：
-```bash
-CONFIG_SMP=y
-```
-
-4. 更新代码中的 cfg 检查：
-```rust
-// 之前
-#[cfg(feature = "smp")]
-
-// 之后
-#[cfg(CONFIG_SMP)]
-```
-
-5. 使用 cargo-kbuild 构建：
-```bash
-cargo-kbuild build
-```
-
-## 命令参考
-
-### `cargo-kbuild init`
-
-初始化项目配置。
-
-**功能：**
-- 扫描 workspace 中所有 `CONFIG_*` features
-- 生成 `.config` 模板（如果不存在）
-- 更新 `.gitignore`
-
-**示例：**
-```bash
-cargo-kbuild init
-```
-
-### `cargo-kbuild check`
-
-验证配置有效性。
-
-**检查项：**
-- `.config` 文件语法
-- 特性依赖关系
-- 未使用的配置项
-- 未定义的特性
-
-**示例：**
-```bash
-cargo-kbuild check
-```
+## Commands
 
 ### `cargo-kbuild build`
 
-构建项目。
+Build the project with current configuration.
 
-**选项：**
-- `--kconfig <path>`: 指定配置文件（默认：`.config`）
+**Options**:
+- `--kconfig <path>`: Specify config file (default: `.config`)
 
-**示例：**
+**Examples**:
 ```bash
-# 使用默认 .config
+# Use default .config
 cargo-kbuild build
 
-# 使用自定义配置文件
+# Use custom config file
 cargo-kbuild build --kconfig custom.config
 ```
 
 ### `cargo-kbuild --help`
 
-显示帮助信息。
+Display help information.
 
-**示例：**
 ```bash
 cargo-kbuild --help
 ```
 
 ### `cargo-kbuild --version`
 
-显示版本信息。
+Display version information.
 
-**示例：**
 ```bash
 cargo-kbuild --version
 ```
 
-## 工作原理
+## How It Works
 
-### 构建流程
-
-```
-1. 解析 workspace
-   ├─ 读取 Cargo.toml
-   ├─ 扫描所有成员 crates
-   └─ 收集 CONFIG_* features
-
-2. 生成 .cargo/config.toml
-   └─ 为每个 CONFIG_* 添加 --check-cfg
-
-3. 验证特性依赖
-   ├─ 检测 kbuild-enabled crates
-   ├─ 验证依赖规则
-   └─ 报告错误
-
-4. 解析 .config
-   ├─ 读取配置值
-   └─ 生成 target/kbuild/config.rs
-
-5. 构建项目
-   ├─ 设置 RUSTFLAGS
-   ├─ 传递 --cfg 标志
-   └─ 调用 cargo build
-```
-
-### 智能检测
-
-cargo-kbuild 通过两种方式检测 crate 是否支持 kbuild：
-
-1. **显式声明：**
-```toml
-[package.metadata.kbuild]
-enabled = true
-```
-
-2. **隐式检测：**
-   - 有任何 `CONFIG_*` 开头的 features
-
-检测到的 kbuild-enabled crates 受严格的依赖规则约束。
-
-### 配置传递
-
-与 Cargo 的 features 不同，kbuild 配置不通过依赖树传递：
+### Build Flow
 
 ```
-Cargo features:        cargo-kbuild:
+1. Parse workspace
+   ├─ Read Cargo.toml files
+   ├─ Identify kbuild-enabled crates
+   └─ Build dependency graph
 
-parent                 .config
-  |                      |
-  +-- child1            ├── crate1
-  |                     ├── crate2
-  +-- child2            └── crate3
+2. Read .config file
+   └─ Extract all CONFIG_* options
 
-树状传递               全局共享
+3. Generate .cargo/config.toml
+   └─ Declare all CONFIG_* for check-cfg
+
+4. Generate target/kbuild/config.rs
+   └─ Create constants for int/string values
+
+5. Validate dependencies
+   ├─ Check kbuild-enabled crates
+   └─ Prevent sub-features on kbuild deps
+
+6. Build project
+   ├─ Set RUSTFLAGS with --cfg flags
+   ├─ Pass features to cargo (only declared ones)
+   └─ Execute cargo build
 ```
 
-所有 crate 平等地从 `.config` 读取配置。
+### Global Configuration Model
 
-## 故障排除
-
-### 错误：找不到 .config
+Unlike Cargo features (tree-based propagation), kbuild uses global sharing:
 
 ```
-❌ Error: .config file not found
+Cargo Features:              cargo-kbuild:
+
+    root                         .config
+     |                              |
+     +-- child1                ├── crate1
+     |   |                     ├── crate2
+     +-- child2                ├── crate3
+         |                     └── crate4
+         +-- child3
+                              All crates read
+Tree propagation             from same .config
 ```
 
-**解决：**
-```bash
-cargo-kbuild init
-```
+## Troubleshooting
 
-### 错误：不能为 kbuild-enabled 依赖指定子特性
+### Error: .config file not found
+
+**Solution**: Create `.config` file manually or use external Kconfig tools.
+
+### Error: Cannot specify sub-feature for kbuild dependency
 
 ```
 ❌ Error in crate 'my-crate':
 Feature 'CONFIG_NET' specifies sub-feature: 'network_utils/async'
 ```
 
-**解决：**
-移除子特性，让依赖自己从 .config 读取：
+**Solution**: Remove the sub-feature, let the dependency read its own config:
+
 ```toml
-# 之前
+# Before
 CONFIG_NET = ["network_utils/async"]
 
-# 之后
+# After
 CONFIG_NET = ["network_utils"]
 ```
 
-### 警告：配置项未使用
-
-```
-⚠️ Warning: The following configs are defined in .config but not declared in any crate:
-   - CONFIG_MY_FEATURE
+Then enable the config in `.config`:
+```bash
+CONFIG_ASYNC=y
 ```
 
-**解决：**
-1. 检查配置名是否拼写错误
-2. 在某个 crate 的 Cargo.toml 中声明该 feature
-3. 或从 .config 中移除
-
-### rustc 警告：unexpected cfg
+### Warning: unexpected cfg condition
 
 ```
 warning: unexpected `cfg` condition name: `CONFIG_XXX`
 ```
 
-**解决：**
-运行 `cargo-kbuild build` 而不是 `cargo build`，会自动生成 .cargo/config.toml。
+**Solution**: Always use `cargo-kbuild build` instead of `cargo build`. This ensures `.cargo/config.toml` is generated.
 
-## 最佳实践
+## Best Practices
 
-1. **始终用 cargo-kbuild 命令**
-   - 使用 `cargo-kbuild build` 而不是 `cargo build`
-   - 确保 .cargo/config.toml 是最新的
+1. **Always use cargo-kbuild commands**
+   - Use `cargo-kbuild build` not `cargo build`
+   - Ensures `.cargo/config.toml` is up-to-date
 
-2. **提交 .config 到 git**
-   - 提供默认配置
-   - 方便团队协作
+2. **Commit .config to git**
+   - Provides default configuration
+   - Facilitates team collaboration
 
-3. **不提交自动生成的文件**
+3. **Do NOT commit auto-generated files**
    - `.cargo/config.toml`
    - `target/kbuild/`
 
-4. **使用 check 命令**
-   - 在构建前运行 `cargo-kbuild check`
-   - 及早发现配置问题
+4. **Use consistent naming**
+   - All global configs use `CONFIG_` prefix
+   - Use uppercase and underscores: `CONFIG_MY_FEATURE`
 
-5. **规范命名**
-   - 所有全局配置使用 `CONFIG_` 前缀
-   - 使用大写和下划线：`CONFIG_MY_FEATURE`
+5. **Document your configurations**
+   - Add comments in `.config` explaining each option
+   - List available configs in README
 
-6. **文档化配置**
-   - 在 .config 中添加注释说明各配置的用途
-   - 在 README 中列出可用配置
+## Example Projects
 
-## 示例项目
+The repository's `crates/` directory contains complete examples:
 
-本仓库的 `crates/` 目录包含完整示例：
+- **kernel_irq** - Basic kbuild usage, no features
+- **kernel_task** - Depends on other kbuild crates
+- **kernel_schedule** - Multiple CONFIG_* usage
+- **kernel_net** - Used as optional dependency
+- **demo_mixed_deps** - Using integer/string constants
+- **legacy_driver** - Non-kbuild crate example
 
-- **kernel_task** - 基本 kbuild 使用
-- **kernel_schedule** - 依赖其他 kbuild crates
-- **kernel_net** - 多个 CONFIG_* features
-- **demo_mixed_deps** - 混合使用 kbuild crates 和第三方库
+Check their `Cargo.toml` files to learn configuration patterns.
 
-查看它们的 `Cargo.toml` 学习如何配置。
+## Technical Details
 
-## 技术细节
+For implementation details, see:
+- [IMPLEMENTATION_DETAILS.md](../IMPLEMENTATION_DETAILS.md) - Technical architecture
+- [IMPLEMENTATION_SUMMARY.md](../IMPLEMENTATION_SUMMARY.md) - Feature overview
 
-如需了解实现细节，请参阅：
-- [IMPLEMENTATION_DETAILS.md](../IMPLEMENTATION_DETAILS.md) - 详细技术架构
-- [IMPLEMENTATION_SUMMARY.md](../IMPLEMENTATION_SUMMARY.md) - 功能总结
+## Support
 
-## 反馈
-
-遇到问题或有建议？请在 GitHub 提 issue。
+Found an issue or have a suggestion? Please open an issue on GitHub.
