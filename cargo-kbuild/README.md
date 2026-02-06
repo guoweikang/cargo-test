@@ -47,16 +47,77 @@ Add to your crate's `Cargo.toml`:
 enabled = true
 ```
 
-### 3. Build Your Project
+### 3. Use Like Cargo
 
 ```bash
+# Any cargo command works
 cargo-kbuild build
+cargo-kbuild test
+cargo-kbuild run
+cargo-kbuild check
 ```
 
 With custom config file:
 
 ```bash
 cargo-kbuild build --kconfig custom.config
+cargo-kbuild test --kconfig .config.debug
+```
+
+## Cargo Wrapper Mode
+
+cargo-kbuild works as a transparent wrapper around cargo. ANY cargo command can be used:
+
+### Standard Cargo Commands
+
+```bash
+# Development
+cargo-kbuild check              # Fast compilation check
+cargo-kbuild build              # Build project
+cargo-kbuild build --release    # Release build
+
+# Testing
+cargo-kbuild test               # Run all tests
+cargo-kbuild test --lib         # Test library only
+cargo-kbuild test integration   # Run specific test
+
+# Running
+cargo-kbuild run                # Run default binary
+cargo-kbuild run --bin demo     # Run specific binary
+cargo-kbuild run -- --help      # Pass args to binary
+
+# Code Quality
+cargo-kbuild clippy             # Run clippy linter
+cargo-kbuild clippy -- -D warnings  # Fail on warnings
+cargo-kbuild fmt                # Format code
+
+# Documentation
+cargo-kbuild doc                # Build documentation
+cargo-kbuild doc --open         # Build and open docs
+
+# Benchmarks
+cargo-kbuild bench              # Run benchmarks
+```
+
+### Custom Configuration
+
+```bash
+# Use different config file
+cargo-kbuild test --kconfig .config.debug
+cargo-kbuild run --kconfig configs/production.config
+```
+
+### Passing Arguments
+
+```bash
+# Arguments before -- go to cargo
+cargo-kbuild test --release --lib
+
+# Arguments after -- go to the test binary
+cargo-kbuild test -- --nocapture --test-threads=1
+
+# Combined
+cargo-kbuild run --release -- --verbose --input data.txt
 ```
 
 ## Architecture Overview

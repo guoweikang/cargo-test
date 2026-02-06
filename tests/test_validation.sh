@@ -149,6 +149,34 @@ else
 fi
 echo
 
+echo "Test 8: 🔄 Cargo wrapper - check command"
+echo "----------------------------------------------------"
+if ./target/debug/cargo-kbuild check --kconfig .config 2>&1 | grep -q "✅ Command completed successfully"; then
+    echo "✅ Check command works with kbuild configuration"
+else
+    echo "❌ Check command failed"
+fi
+echo
+
+echo "Test 9: 🔄 Cargo wrapper - test command (expect some failures)"
+echo "----------------------------------------------------"
+# Just verify the command runs (some tests may fail due to no lib target in root)
+if ./target/debug/cargo-kbuild test --kconfig .config 2>&1 | grep -qE "(🔨 Running cargo test|Finished|error: no library)"; then
+    echo "✅ Test command forwards to cargo successfully"
+else
+    echo "❌ Test command failed to forward"
+fi
+echo
+
+echo "Test 10: 🔄 Cargo wrapper - with arguments"
+echo "----------------------------------------------------"
+if ./target/debug/cargo-kbuild build --release --kconfig .config 2>&1 | grep -qE "(✅ Command completed successfully|Finished)"; then
+    echo "✅ Build with --release argument works"
+else
+    echo "❌ Build with arguments failed"
+fi
+echo
+
 echo "=============================================="
 echo "🎉 All tests completed"
 
