@@ -27,4 +27,4 @@ demo_mixed_deps = { path = "crates/demo_mixed_deps", optional = true }
 [features]
 default = []
 # Only declare features that enable optional dependencies
-CONFIG_NET = ["kernel_net", "demo_mixed_deps"]
+NET = ["kernel_net", "demo_mixed_deps"]

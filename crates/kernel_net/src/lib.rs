@@ -6,7 +6,7 @@ pub fn net_init() {
     network_utils::init();
     println!("🌐 [NET] Network utilities loaded");
     
-    #[cfg(CONFIG_LOGGING)]
+    #[cfg(LOGGING)]
     {
         // In a real scenario, this would use log crate
         println!("📝 [NET] Logging system enabled");
