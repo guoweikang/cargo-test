@@ -19,22 +19,22 @@ Linux Kconfig-style configuration system for Rust/Cargo projects.
 
 2. **Create `.config`** (via Kconfig tools or manually):
    ```
-   CONFIG_SMP=y
-   CONFIG_NET=y
-   CONFIG_LOG_LEVEL=3
-   CONFIG_MAX_CPUS=8
-   CONFIG_DEFAULT_SCHEDULER="cfs"
+   SMP=y
+   NET=y
+   LOG_LEVEL=3
+   MAX_CPUS=8
+   DEFAULT_SCHEDULER="cfs"
    ```
 
 3. **Use like cargo**:
    ```bash
-   cargo-kbuild build
-   cargo-kbuild test
-   cargo-kbuild run
-   cargo-kbuild check
+   cargo kbuild build
+   cargo kbuild test
+   cargo kbuild run
+   cargo kbuild check
    ```
 
-All your CONFIG_* settings are automatically applied!
+All your configuration settings are automatically applied!
 
 ## Architecture
 
@@ -55,22 +55,22 @@ All your CONFIG_* settings are automatically applied!
 ## Usage
 
 ```bash
-cargo-kbuild build                           # Build with .config
-cargo-kbuild test                            # Run tests with .config
-cargo-kbuild run                             # Run binary with .config
-cargo-kbuild check                           # Check code with .config
-cargo-kbuild clippy                          # Run clippy with .config
-cargo-kbuild build --kconfig custom.config  # Use custom config
-cargo-kbuild test --lib -- --nocapture      # Pass args through
-cargo-kbuild --help                          # Show help
-cargo-kbuild --version                       # Show version
+cargo kbuild build                           # Build with .config
+cargo kbuild test                            # Run tests with .config
+cargo kbuild run                             # Run binary with .config
+cargo kbuild check                           # Check code with .config
+cargo kbuild clippy                          # Run clippy with .config
+cargo kbuild build --kconfig custom.config  # Use custom config
+cargo kbuild test --lib -- --nocapture      # Pass args through
+cargo kbuild --help                          # Show help
+cargo kbuild --version                       # Show version
 ```
 
 ## Configuration in Code
 
 ### Boolean Configs
 ```rust
-#[cfg(CONFIG_SMP)]
+#[cfg(SMP)]
 fn init_smp() {
     println!("SMP enabled");
 }
@@ -81,9 +81,9 @@ fn init_smp() {
 use kbuild_config::*;
 
 fn init() {
-    println!("Log level: {}", CONFIG_LOG_LEVEL);
-    println!("Max CPUs: {}", CONFIG_MAX_CPUS);
-    println!("Scheduler: {}", CONFIG_DEFAULT_SCHEDULER);
+    println!("Log level: {}", LOG_LEVEL);
+    println!("Max CPUs: {}", MAX_CPUS);
+    println!("Scheduler: {}", DEFAULT_SCHEDULER);
 }
 ```
 
@@ -97,11 +97,11 @@ fn init() {
 kernel_net = { path = "crates/kernel_net", optional = true }
 
 [features]
-CONFIG_NET = ["kernel_net"]
+NET = ["kernel_net"]
 
 # ❌ WRONG: No optional dependency
 [features]
-CONFIG_SMP = []  # Don't declare - just use in code
+SMP = []  # Don't declare - just use in code
 ```
 
 ## Enable Kbuild
