@@ -48,6 +48,9 @@ struct CrateInfo {
 
 impl CrateInfo {
     fn is_kbuild_enabled(&self) -> bool {
+        // A crate is kbuild-enabled if metadata.kbuild.enabled is set
+        // or if it has any features (since non-kbuild crates typically don't declare features)
+        // This is a heuristic that works for the current codebase
         self.has_kbuild || !self.features.is_empty()
     }
 }
@@ -127,12 +130,13 @@ impl Workspace {
 #[allow(dead_code)]
 fn is_dependency_kbuild_enabled(workspace: &Workspace, pkg_name: &str) -> bool {
     if let Some(dep_crate) = workspace.find_crate(pkg_name) {
-        // Method 1: Check metadata.kbuild.enabled
+        // Check metadata.kbuild.enabled - this is the primary indicator
         if dep_crate.has_kbuild {
             return true;
         }
         
-        // Method 2: Check if it has any features (simplified check)
+        // As a fallback heuristic, check if it has any features
+        // (works for current codebase where non-kbuild crates don't use features)
         if !dep_crate.features.is_empty() {
             return true;
         }
@@ -417,7 +421,7 @@ fn apply_kbuild_config(
     
     println!("🚀 Running: cargo {}\n", cargo_args.join(" "));
     
-    // Set RUSTFLAGS to enable CONFIG_* as cfg values and declare them for check-cfg
+    // Set RUSTFLAGS to enable config values as cfg flags and declare them for check-cfg
     let mut rustflags = String::new();
     
     // Add check-cfg declarations for all config options from .config

@@ -81,7 +81,7 @@ network_utils = { path = "../network_utils" }
 NET = ["network_utils/ASYNC"]
 EOF
 
-echo "Modified kernel_net/Cargo.toml to use network_utils/CONFIG_ASYNC"
+echo "Modified kernel_net/Cargo.toml to use network_utils/ASYNC"
 echo
 
 if ./target/debug/cargo-kbuild build --kconfig .config 2>&1 | grep -q "Error in crate 'kernel_net'"; then
