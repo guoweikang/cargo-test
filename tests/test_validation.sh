@@ -32,12 +32,12 @@ if [ -f ".cargo/config.toml" ]; then
     echo ""
     
     # Verify key declarations (should include configs from .config, not just features)
-    if grep -q "CONFIG_SMP" .cargo/config.toml && \
-       grep -q "CONFIG_NET" .cargo/config.toml && \
-       grep -q "CONFIG_ASYNC" .cargo/config.toml; then
-        echo "✅ All expected CONFIG_* declarations found"
+    if grep -q "SMP" .cargo/config.toml && \
+       grep -q "NET" .cargo/config.toml && \
+       grep -q "ASYNC" .cargo/config.toml; then
+        echo "✅ All expected config declarations found"
     else
-        echo "❌ Missing CONFIG_* declarations"
+        echo "❌ Missing config declarations"
         exit 1
     fi
 else
@@ -78,10 +78,10 @@ enabled = true
 network_utils = { path = "../network_utils" }
 
 [features]
-CONFIG_NET = ["network_utils/CONFIG_ASYNC"]
+NET = ["network_utils/ASYNC"]
 EOF
 
-echo "Modified kernel_net/Cargo.toml to use network_utils/CONFIG_ASYNC"
+echo "Modified kernel_net/Cargo.toml to use network_utils/ASYNC"
 echo
 
 if ./target/debug/cargo-kbuild build --kconfig .config 2>&1 | grep -q "Error in crate 'kernel_net'"; then
@@ -109,22 +109,22 @@ if [ -f "target/kbuild/config.rs" ]; then
     echo
     
     # Verify expected constants
-    if grep -q "CONFIG_LOG_LEVEL: i32 = 3" target/kbuild/config.rs; then
-        echo "✅ CONFIG_LOG_LEVEL constant found"
+    if grep -q "LOG_LEVEL: i32 = 3" target/kbuild/config.rs; then
+        echo "✅ LOG_LEVEL constant found"
     else
-        echo "❌ CONFIG_LOG_LEVEL constant missing"
+        echo "❌ LOG_LEVEL constant missing"
     fi
     
-    if grep -q "CONFIG_MAX_CPUS: i32 = 8" target/kbuild/config.rs; then
-        echo "✅ CONFIG_MAX_CPUS constant found"
+    if grep -q "MAX_CPUS: i32 = 8" target/kbuild/config.rs; then
+        echo "✅ MAX_CPUS constant found"
     else
-        echo "❌ CONFIG_MAX_CPUS constant missing"
+        echo "❌ MAX_CPUS constant missing"
     fi
     
-    if grep -q 'CONFIG_DEFAULT_SCHEDULER: &str = "cfs"' target/kbuild/config.rs; then
-        echo "✅ CONFIG_DEFAULT_SCHEDULER constant found"
+    if grep -q 'DEFAULT_SCHEDULER: &str = "cfs"' target/kbuild/config.rs; then
+        echo "✅ DEFAULT_SCHEDULER constant found"
     else
-        echo "❌ CONFIG_DEFAULT_SCHEDULER constant missing"
+        echo "❌ DEFAULT_SCHEDULER constant missing"
     fi
 else
     echo "❌ config.rs not found"

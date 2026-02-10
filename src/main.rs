@@ -2,10 +2,10 @@ use kernel_schedule::{schedule_init, schedule_on_cpu};
 use kernel_task::create_task;
 use legacy_driver::driver_init;
 
-#[cfg(CONFIG_NET)]
+#[cfg(NET)]
 use kernel_net::net_init;
 
-#[cfg(CONFIG_NET)]
+#[cfg(NET)]
 use demo_mixed_deps;
 
 fn main() {
@@ -19,7 +19,7 @@ fn main() {
     println!();
     
     // Create tasks
-    #[cfg(CONFIG_SMP)]
+    #[cfg(SMP)]
     {
         let task1 = create_task(1, 0);
         let task2 = create_task(2, 1);
@@ -27,7 +27,7 @@ fn main() {
         schedule_on_cpu(&task2);
     }
     
-    #[cfg(not(CONFIG_SMP))]
+    #[cfg(not(SMP))]
     {
         let task1 = create_task(1);
         schedule_on_cpu(&task1);
@@ -36,14 +36,14 @@ fn main() {
     println!();
     
     // Initialize network subsystem (new)
-    #[cfg(CONFIG_NET)]
+    #[cfg(NET)]
     {
         net_init();
         println!();
     }
     
     // Demo mixed dependencies with config constants
-    #[cfg(CONFIG_NET)]
+    #[cfg(NET)]
     {
         demo_mixed_deps::demo();
         println!();
